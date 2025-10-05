@@ -1,73 +1,29 @@
-# React + TypeScript + Vite
+# Faceable: Face Your Vision.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Live Demo:**
 
-Currently, two official plugins are available:
+Welcome to **Faceable**, a groundbreaking accessibility project developed for the **Living Culture Track** at **HackHarvard2025**. Faceable eliminates the barrier of manual dexterity, allowing anyone with motor impairments to create art using only subtle head and facial movements.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Project Summary
 
-## React Compiler
+**Faceable** is the first creative suite to successfully utilize browser-native computer vision to transform the user's face into a high-resolution, zero-contact artistic controller. It empowers users by treating the **central facial point (nose tip)** as an **"ocular stylus,"** proving that creative genius is a function of intent, not the hands.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Core Technology
 
-## Expanding the ESLint configuration
+This application is built using a modern, efficient tech stack designed for optimal performance in the browser:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+* **Framework:** React with TypeScript (via Vite).
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+* **Styling:** Tailwind CSS (for a responsive, high-contrast user interface).
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+* **Computer Vision (CV):** **MediaPipe Face Landmarker** (loaded via CDN) for real-time facial feature tracking.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+* **Input Logic:** Custom-built **Dwell Time Filter** and **Coordinate Smoothing** algorithms to distinguish intentional artistic strokes from accidental head jitter.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+* **Canvas Engine:** HTML Canvas API for low-latency line rendering.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Local Setup and Development
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+To run **Faceable** locally and test the gaze functionality using your own webcam, follow these steps:
+
+1. **Clone the Repository:**
