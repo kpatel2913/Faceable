@@ -1,0 +1,307 @@
+import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
+
+// MediaPipe types (simplified for our use case)
+interface MediaPipeVision {
+  FaceLandmarker: any;
+  FilesetResolver: any;
+  DrawingUtils: any;
+}
+
+interface GestureData {
+  type: "smile" | "eyebrow_raise" | "mouth_open" | "cursor_move";
+  position?: { x: number; y: number };
+}
+
+interface GestureDetectorProps {
+  onGestureDetected: (gesture: GestureData) => void;
+  onBlendShapesUpdate?: (data: any) => void;
+}
+
+// Extend Window interface for MediaPipe
+declare global {
+  interface Window {
+    vision?: MediaPipeVision;
+    mediaPipeLoaded?: boolean;
+  }
+}
+
+const THRESHOLDS = {
+  MOUTH_OPEN: 0.3,
+  SMILE: 0.5,
+  EYEBROW_RAISE: 0.55,
+  HEAD_TILT_SENSITIVITY: .15,
+};
+
+const DEBOUNCE_MS = 500;
+
+export default function GestureDetector({ onGestureDetected, onBlendShapesUpdate }: GestureDetectorProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const faceLandmarkerRef = useRef<any>(null);
+  const lastGestureTimeRef = useRef<Record<string, number>>({});
+  const drawingUtilsRef = useRef<any>(null);
+  const lastCursorPosRef = useRef({ x: 50, y: 50 });
+  const onGestureDetectedRef = useRef(onGestureDetected);
+  const onBlendShapesUpdateRef = useRef(onBlendShapesUpdate);
+
+  useEffect(() => {
+    onGestureDetectedRef.current = onGestureDetected;
+    onBlendShapesUpdateRef.current = onBlendShapesUpdate;
+  });
+
+  useEffect(() => {
+    let webcamStream: MediaStream | null = null;
+    let animationFrameId: number | null = null;
+
+    const loadMediaPipeScript = () => {
+      return new Promise((resolve, reject) => {
+        // Check if already loaded
+        if (window.vision) {
+          resolve(window.vision);
+          return;
+        }
+
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = `
+          import vision from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3';
+          window.vision = vision;
+          window.mediaPipeLoaded = true;
+        `;
+        
+        script.onerror = () => reject(new Error('Failed to load MediaPipe'));
+        
+        document.head.appendChild(script);
+        
+        // Poll for the script to load
+        const checkLoaded = setInterval(() => {
+          if (window.vision) {
+            clearInterval(checkLoaded);
+            resolve(window.vision);
+          }
+        }, 100);
+
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          clearInterval(checkLoaded);
+          if (!window.vision) {
+            reject(new Error('MediaPipe loading timeout'));
+          }
+        }, 10000);
+      });
+    };
+
+    const initializeMediaPipe = async () => {
+      try {
+        // Load MediaPipe
+        const vision = await loadMediaPipeScript();
+        const { FaceLandmarker, FilesetResolver, DrawingUtils } = vision as MediaPipeVision;
+
+        const filesetResolver = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+        );
+
+        faceLandmarkerRef.current = await FaceLandmarker.createFromOptions(filesetResolver, {
+          baseOptions: {
+            modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task`,
+            delegate: "GPU"
+          },
+          outputFaceBlendshapes: true,
+          runningMode: "VIDEO",
+          numFaces: 1
+        });
+
+        // Initialize webcam
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { width: 640, height: 480 } 
+        });
+        
+        webcamStream = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          
+          await new Promise((resolve) => {
+            if (videoRef.current) {
+              videoRef.current.onloadeddata = resolve;
+            }
+          });
+        }
+
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            drawingUtilsRef.current = new DrawingUtils(ctx);
+          }
+        }
+
+        setIsLoading(false);
+        startDetection();
+      } catch (err) {
+        console.error("Initialization error:", err);
+        setError("Failed to initialize webcam or face tracking. Please ensure camera permissions are granted.");
+        setIsLoading(false);
+      }
+    };
+
+    const startDetection = () => {
+      const detectFrame = async () => {
+        if (!faceLandmarkerRef.current || !videoRef.current || !canvasRef.current) return;
+
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
+        
+        if (!ctx) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const startTimeMs = performance.now();
+        const results = faceLandmarkerRef.current.detectForVideo(video, startTimeMs);
+
+        if (results.faceBlendshapes && results.faceBlendshapes.length > 0) {
+          const blendShapes = results.faceBlendshapes[0].categories;
+          processGestures(blendShapes);
+          onBlendShapesUpdateRef.current?.(blendShapes);
+        }
+
+        if (results.faceLandmarks && results.faceLandmarks.length > 0) {
+          processCursorMovement(results.faceLandmarks[0]);
+        }
+
+        animationFrameId = requestAnimationFrame(detectFrame);
+      };
+
+      detectFrame();
+    };
+
+    const processGestures = (blendShapes: any[]) => {
+      const now = Date.now();
+      
+      const getBlendShape = (name: string) => {
+        const shape = blendShapes.find((s: any) => s.categoryName === name);
+        return shape ? shape.score : 0;
+      };
+
+      // Smile detection (for changing tool)
+      const smile = Math.max(
+        getBlendShape("mouthSmileLeft"),
+        getBlendShape("mouthSmileRight")
+      );
+      if (smile > THRESHOLDS.SMILE) {
+        if (!lastGestureTimeRef.current.smile || 
+            now - lastGestureTimeRef.current.smile > DEBOUNCE_MS) {
+          onGestureDetectedRef.current?.({ type: "smile" });
+          lastGestureTimeRef.current.smile = now;
+        }
+      }
+
+      // Eyebrow raise detection (for changing color)
+      const eyebrowRaise = Math.max(
+        getBlendShape("browInnerUp"),
+        getBlendShape("browOuterUpLeft"),
+        getBlendShape("browOuterUpRight")
+      );
+      if (eyebrowRaise > THRESHOLDS.EYEBROW_RAISE) {
+        if (!lastGestureTimeRef.current.eyebrow_raise || 
+            now - lastGestureTimeRef.current.eyebrow_raise > DEBOUNCE_MS) {
+          onGestureDetectedRef.current?.({ type: "eyebrow_raise" });
+          lastGestureTimeRef.current.eyebrow_raise = now;
+        }
+      }
+
+      // Mouth open detection (for toggling drawing)
+      const mouthOpen = Math.max(
+        getBlendShape("mouthOpen"),
+        getBlendShape("jawOpen")
+      );
+      if (mouthOpen > THRESHOLDS.MOUTH_OPEN) {
+        if (!lastGestureTimeRef.current.mouth_open || 
+            now - lastGestureTimeRef.current.mouth_open > DEBOUNCE_MS) {
+          onGestureDetectedRef.current?.({ type: "mouth_open" });
+          lastGestureTimeRef.current.mouth_open = now;
+        }
+      }
+    };
+
+    const processCursorMovement = (landmarks: any[]) => {
+      // Use nose tip (landmark 1) for cursor position
+      const noseTip = landmarks[1];
+      
+      // Map face position to canvas coordinates (0-100%)
+      // Flip X axis since video is mirrored
+      const x = Math.max(0, Math.min(100, (1 - noseTip.x) * 100));
+      const y = Math.max(0, Math.min(100, noseTip.y * 100));
+
+      // Smooth movement
+      const smoothedX = lastCursorPosRef.current.x * 0.6 + x * 0.4;
+      const smoothedY = lastCursorPosRef.current.y * 0.6 + y * 0.4;
+
+      lastCursorPosRef.current = { x: smoothedX, y: smoothedY };
+
+      onGestureDetectedRef.current?.({
+        type: "cursor_move",
+        position: { x: smoothedX, y: smoothedY }
+      });
+    };
+
+    initializeMediaPipe();
+
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      if (webcamStream) {
+        webcamStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+      }
+    };
+  }, []);
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border-2 border-red-200 rounded-lg p-6 text-center">
+        <p className="text-red-800 mb-2 font-semibold">Unable to Start Face Tracking</p>
+        <p className="text-red-700 text-sm">{error}</p>
+        <p className="text-red-600 text-xs mt-3">
+          Please check your camera permissions and ensure you're using a modern browser (Chrome, Edge, or Safari).
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900/20 backdrop-blur-sm rounded-lg z-10">
+          <div className="bg-white rounded-lg p-6 shadow-xl flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+            <span className="text-slate-700 font-medium">Loading face tracking...</span>
+            <span className="text-slate-500 text-sm">This may take a few moments</span>
+          </div>
+        </div>
+      )}
+      <div className="relative rounded-lg overflow-hidden bg-slate-900">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full transform scale-x-[-1]"
+        />
+        <canvas
+          ref={canvasRef}
+          className="absolute top-0 left-0 w-full h-full transform scale-x-[-1]"
+        />
+      </div>
+      <p className="text-center text-sm text-slate-600 mt-2">
+        Position your face in the frame
+      </p>
+    </div>
+  );
+}
