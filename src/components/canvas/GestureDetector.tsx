@@ -28,7 +28,7 @@ declare global {
 
 const THRESHOLDS = {
   MOUTH_OPEN: 0.3,
-  SMILE: 0.5,
+  SMILE: 0.8,
   EYEBROW_RAISE: 0.75,
   HEAD_TILT_SENSITIVITY: 0.15,
   HEAD_MOVEMENT_THRESHOLD: 0.05, // Threshold for detecting significant head movement
@@ -36,6 +36,13 @@ const THRESHOLDS = {
 };
 
 const DEBOUNCE_MS = 500;
+// --- NEW CONSTANTS FOR SENSITIVITY ---
+// 1. Controls how much the face position (0 to 1) is scaled up to the screen (0 to 100).
+//    A higher value means smaller head movements cover more screen space.
+const MOVEMENT_MULTIPLIER = 1.5;
+// 2. Controls the damping/smoothness. Lower factor = faster, more responsive cursor.
+//    (0.6 original was 60% previous position, 0.4 new position)
+const SMOOTHING_FACTOR = 0.4;
 
 export default function GestureDetector({
   onGestureDetected,
@@ -233,10 +240,11 @@ export default function GestureDetector({
         getBlendShape("browOuterUpLeft"),
         getBlendShape("browOuterUpRight")
       );
-      
-      const isHeadStable = headStableSinceRef.current > 0 && 
-        (now - headStableSinceRef.current) > THRESHOLDS.EYEBROW_STABILITY_TIME;
-      
+
+      const isHeadStable =
+        headStableSinceRef.current > 0 &&
+        now - headStableSinceRef.current > THRESHOLDS.EYEBROW_STABILITY_TIME;
+
       if (eyebrowRaise > THRESHOLDS.EYEBROW_RAISE && isHeadStable) {
         if (
           !lastGestureTimeRef.current.eyebrow_raise ||
@@ -268,24 +276,43 @@ export default function GestureDetector({
       // Use nose tip (landmark 1) for cursor position
       const noseTip = landmarks[1];
 
-      // Map face position to canvas coordinates (0-100%)
-      // Flip X axis since video is mirrored
-      const x = Math.max(0, Math.min(100, (1 - noseTip.x) * 100));
-      const y = Math.max(0, Math.min(100, noseTip.y * 100));
+      // Calculate center point (50, 50) and displacement from center (x_disp, y_disp)
+      // Normalized coordinates range from 0 to 1. Center is (0.5, 0.5)
+      const centerX = 0.5;
+      const centerY = 0.5;
+
+      const x_disp = 1 - noseTip.x - centerX; // Flip X and find displacement from center
+      const y_disp = noseTip.y - centerY; // Find displacement from center
+
+      // *** THE CORE SENSITIVITY ADJUSTMENT ***
+      // Apply the multiplier to the displacement.
+      // A multiplier > 1.0 expands the effective drawing area.
+      const magnifiedX = centerX + x_disp * MOVEMENT_MULTIPLIER;
+      const magnifiedY = centerY + y_disp * MOVEMENT_MULTIPLIER;
+
+      // Map magnified position (0-1) to canvas coordinates (0-100%)
+      const x = Math.max(0, Math.min(100, magnifiedX * 100));
+      const y = Math.max(0, Math.min(100, magnifiedY * 100));
 
       // Smooth movement
-      const smoothedX = lastCursorPosRef.current.x * 0.6 + x * 0.4;
-      const smoothedY = lastCursorPosRef.current.y * 0.6 + y * 0.4;
+      // lastCursorPosRef.current.x * 0.6 + x * 0.4; (Original weights 60/40)
+      // New weights use SMOOTHING_FACTOR=0.4 (40% previous, 60% new) for higher responsiveness
+      const smoothedX =
+        lastCursorPosRef.current.x * SMOOTHING_FACTOR +
+        x * (1 - SMOOTHING_FACTOR);
+      const smoothedY =
+        lastCursorPosRef.current.y * SMOOTHING_FACTOR +
+        y * (1 - SMOOTHING_FACTOR);
 
       // Track head movement for eyebrow raise detection
       const currentHeadPos = { x: noseTip.x, y: noseTip.y };
       const headMovement = Math.sqrt(
         Math.pow(currentHeadPos.x - lastHeadPositionRef.current.x, 2) +
-        Math.pow(currentHeadPos.y - lastHeadPositionRef.current.y, 2)
+          Math.pow(currentHeadPos.y - lastHeadPositionRef.current.y, 2)
       );
 
       const now = Date.now();
-      
+
       // Check if head is stable (not moving significantly)
       if (headMovement < THRESHOLDS.HEAD_MOVEMENT_THRESHOLD) {
         if (headStableSinceRef.current === 0) {

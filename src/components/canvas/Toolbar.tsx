@@ -16,13 +16,24 @@ interface ToolbarProps {
   onColorChange: (color: string) => void;
 }
 
-export default function Toolbar({ tools, colors, currentTool, currentColor, onToolChange, onColorChange }: ToolbarProps) {
+export default function Toolbar({
+  tools,
+  colors,
+  currentTool,
+  currentColor,
+  onToolChange,
+  onColorChange,
+}: ToolbarProps) {
   const getToolIcon = (toolId: string) => {
     switch (toolId) {
-      case "pen": return <PenTool className="w-5 h-5" />;
-      case "eraser": return <Eraser className="w-5 h-5" />;
-      case "thick-pen": return <Paintbrush className="w-5 h-5" />;
-      default: return <PenTool className="w-5 h-5" />;
+      case "pen":
+        return <PenTool className="w-5 h-5" />;
+      case "eraser":
+        return <Eraser className="w-5 h-5" />;
+      case "thick-pen":
+        return <Paintbrush className="w-5 h-5" />;
+      default:
+        return <PenTool className="w-5 h-5" />;
     }
   };
 
