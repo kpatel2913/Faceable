@@ -27,3 +27,29 @@ This application is built using a modern, efficient tech stack designed for opti
 To run **Faceable** locally and test the gaze functionality using your own webcam, follow these steps:
 
 1. **Clone the Repository:**
+```
+git clone [Your repository link here]
+cd [your-project-folder]
+```
+2. **Install Dependencies:**
+```
+npm install
+```
+3, **Start the Development Server:**
+```
+npm run dev
+```
+4. **View the Application:** Open your web browser and navigate to the address displayed in the terminal (usually `http://localhost:5173`).
+
+5. **Enable Webcam:** Ensure you grant camera permissions when prompted. The application will immediately begin processing the video feed to control the cursor.
+
+## How to Use the App
+
+| Action (Gesture) | Result |
+| :--- | :--- |
+| **Move Head** | Moves the drawing cursor on the canvas. |
+| **Open Mouth** | Toggles drawing **ON** or **OFF** (acting as the virtual 'pen down' control). |
+| **Smile** | Cycles through the available drawing tools (Pen, Eraser, Thick Pen). |
+| **Raise Eyebrows** | Cycles through the available colors. |
+
+*This project was developed for the **Living Culture Track: Reimagine creativity with digital innovation** at **HackHarvard2025**.*
