@@ -132,15 +132,6 @@ export default function Canvas() {
               isDrawing={isDrawing}
             />
 
-            <Toolbar
-              tools={tools}
-              colors={colors}
-              currentTool={currentTool}
-              currentColor={currentColor}
-              onToolChange={setCurrentTool}
-              onColorChange={setCurrentColor}
-            />
-
             {/* Instructions */}
             <Card className="p-6 glass-card text-white">
               <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
@@ -168,7 +159,7 @@ export default function Canvas() {
             </Card>
           </div>
 
-          {/* Right Column - Canvas & Webcam */}
+          {/* Right Column - Canvas & Tools */}
           <div className="lg:col-span-3 space-y-4">
             <div className="relative">
               <DrawingCanvas
@@ -185,26 +176,39 @@ export default function Canvas() {
               />
             </div>
 
-            {isWebcamActive && (
-              <Card className="p-4 glass-card text-white">
-                <GestureDetector
-                  onGestureDetected={(gesture: GestureData) => {
-                    if (gesture.type === "smile") { // Fixed: was checking for "mouth_smile" but GestureDetector sends "smile"
-                      cycleTool();
-                    } else if (gesture.type === "eyebrow_raise") {
-                      cycleColor();
-                    } else if (gesture.type === "mouth_open") {
-                      setIsDrawing(!isDrawing);
-                    } else if (gesture.type === "cursor_move" && gesture.position) {
-                      setCursorPosition(gesture.position);
-                    }
-                  }}
-                />
-              </Card>
-            )}
+            {/* Horizontal Tools and Colors */}
+            <Toolbar
+              tools={tools}
+              colors={colors}
+              currentTool={currentTool}
+              currentColor={currentColor}
+              onToolChange={setCurrentTool}
+              onColorChange={setCurrentColor}
+            />
           </div>
         </div>
       </div>
+
+      {/* Fixed Camera Overlay */}
+      {isWebcamActive && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <Card className="p-2 glass-card text-white w-48">
+            <GestureDetector
+              onGestureDetected={(gesture: GestureData) => {
+                if (gesture.type === "smile") { // Fixed: was checking for "mouth_smile" but GestureDetector sends "smile"
+                  cycleTool();
+                } else if (gesture.type === "eyebrow_raise") {
+                  cycleColor();
+                } else if (gesture.type === "mouth_open") {
+                  setIsDrawing(!isDrawing);
+                } else if (gesture.type === "cursor_move" && gesture.position) {
+                  setCursorPosition(gesture.position);
+                }
+              }}
+            />
+          </Card>
+        </div>
+      )}
     </div>
   );
 }
