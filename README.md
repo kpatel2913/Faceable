@@ -35,7 +35,7 @@ cd [your-project-folder]
 ```
 npm install
 ```
-3, **Start the Development Server:**
+3. **Start the Development Server:**
 ```
 npm run dev
 ```
