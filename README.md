@@ -1,6 +1,6 @@
 # Faceable: Face Your Vision.
 
-**Live Demo:**
+**Live Demo: https://faceable.vercel.app/**
 
 Welcome to **Faceable**, a groundbreaking accessibility project developed for the **Living Culture Track** at **HackHarvard2025**. Faceable eliminates the barrier of manual dexterity, allowing anyone with motor impairments to create art using only subtle head and facial movements.
 
