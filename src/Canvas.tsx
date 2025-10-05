@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -64,7 +63,7 @@ export default function Canvas() {
   };
 
   const cycleTool = () => {
-    const currentIndex = tools.findIndex(t => t.id === currentTool);
+    const currentIndex = tools.findIndex((t) => t.id === currentTool);
     const nextIndex = (currentIndex + 1) % tools.length;
     setCurrentTool(tools[nextIndex].id);
   };
@@ -93,7 +92,9 @@ export default function Canvas() {
           {/* Left Column - Controls */}
           <div className="lg:col-span-1 space-y-4">
             <Card className="p-6 glass-card-main text-white">
-              <h2 className="text-xl font-semibold mb-4 text-white">Controls</h2>
+              <h2 className="text-xl font-semibold mb-4 text-white">
+                Controls
+              </h2>
               <div className="space-y-3">
                 <Button
                   onClick={toggleWebcam}
@@ -141,19 +142,27 @@ export default function Canvas() {
               <ul className="space-y-2 text-sm text-gray-200">
                 <li className="flex items-start gap-2">
                   <span className="text-blue-400 font-bold mt-1">•</span>
-                  <span><strong>Open mouth:</strong> Toggle drawing on/off</span>
+                  <span>
+                    <strong>Open mouth:</strong> Toggle drawing on/off
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-purple-400 font-bold mt-1">•</span>
-                  <span><strong>Smile:</strong> Switch tool</span>
+                  <span>
+                    <strong>Smile:</strong> Switch tool
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-pink-400 font-bold mt-1">•</span>
-                  <span><strong>Raise eyebrows:</strong> Change color</span>
+                  <span>
+                    <strong>Raise eyebrows:</strong> Change color
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-teal-400 font-bold mt-1">•</span>
-                  <span><strong>Move head:</strong> Move cursor</span>
+                  <span>
+                    <strong>Move head:</strong> Move cursor
+                  </span>
                 </li>
               </ul>
             </Card>
@@ -195,7 +204,8 @@ export default function Canvas() {
           <Card className="p-2 glass-card text-white w-48">
             <GestureDetector
               onGestureDetected={(gesture: GestureData) => {
-                if (gesture.type === "smile") { // Fixed: was checking for "mouth_smile" but GestureDetector sends "smile"
+                if (gesture.type === "smile") {
+                  // Fixed: was checking for "mouth_smile" but GestureDetector sends "smile"
                   cycleTool();
                 } else if (gesture.type === "eyebrow_raise") {
                   cycleColor();
